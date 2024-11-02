@@ -1,121 +1,114 @@
-# interface.py
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 from eia_api import EIAAPI
-import os
 from dotenv import load_dotenv
+import os
+import requests
 
-# Toggle development mode here
-DEVELOPMENT = True  # Set to False for production
+# Load environment variables from api.env
+load_dotenv("api.env")
+EIA_API_KEY = os.getenv("EIA_API_KEY")
 
-# Load environment variables from api.env if DEVELOPMENT is True
-if DEVELOPMENT:
-    load_dotenv("api.env")
-    EIA_API_KEY = os.getenv("EIA_API_KEY")
-else:
-    EIA_API_KEY = None
-
-# Interface class to encapsulate UI elements and logic
 class EnergyCostOptimizationInterface:
     def __init__(self):
-        # Output widget for displaying messages and data
         self.output = widgets.Output()
+        self.api = EIAAPI(api_key=EIA_API_KEY)
 
-        # Check if we are in development mode to use hardcoded API keys
-        if DEVELOPMENT and EIA_API_KEY:
-            self.eia_api_key = EIA_API_KEY
-            self.show_api_input = False
-            with self.output:
-                print("Development mode: Using hardcoded API key.")
-        else:
-            self.eia_api_key_input = widgets.Text(
-                placeholder='Enter EIA API Key', description='EIA API Key:'
-            )
-            self.show_api_input = True
-            with self.output:
-                print("Production mode: Displaying API key input field.")
+        # Main interface elements
+        self.route_buttons_container = widgets.VBox()
+        self.frequency_dropdown = widgets.Dropdown(description='Frequency:', options=[], disabled=True)
+        self.state_dropdown = widgets.Dropdown(description='State:', options=[], disabled=True)
+        self.sector_dropdown = widgets.Dropdown(description='Sector:', options=[], disabled=True)
+        
+        # Data selection checkboxes
+        self.data_checkboxes = {
+            "revenue": widgets.Checkbox(description="Revenue (million dollars)", value=False),
+            "sales": widgets.Checkbox(description="Sales (million kWh)", value=False),
+            "price": widgets.Checkbox(description="Price (cents/kWh)", value=False),
+            "customers": widgets.Checkbox(description="Customers (number)", value=False)
+        }
 
-        # Initialize API instance and fetch routes
-        self.eia_api = EIAAPI(api_key=self.eia_api_key if DEVELOPMENT else "")
-        self.routes = self.eia_api.fetch_routes()
-
-        # Create buttons for each route
-        self.route_buttons = {}
-        for route in self.routes:
-            button = widgets.Button(description=route["name"], button_style="info")
-            button.on_click(lambda b, route=route: self.display_route_info(route))
-            self.route_buttons[route["id"]] = button
-
-        # Date range selection dropdowns
-        self.date_range = widgets.Dropdown(
-            options=['Last Month', 'Last Quarter', 'Last Year'],
-            value='Last Month',
-            description='Date Range:'
-        )
-
-        # Button to fetch data based on selected route
-        self.fetch_data_button = widgets.Button(
-            description="Fetch Route Data", button_style='success'
-        )
+        # Fetch button
+        self.fetch_data_button = widgets.Button(description="Fetch Data", button_style="info", disabled=True)
         self.fetch_data_button.on_click(self.fetch_data)
 
-        # Display the UI when initialized
+        # Load routes
+        self.fetch_routes()
         self.display_interface()
 
     def display_interface(self):
-        # Display input field for API key if needed
-        if self.show_api_input:
-            display(self.eia_api_key_input)
-        
-        # Display route buttons
-        for button in self.route_buttons.values():
-            display(button)
+        display(self.route_buttons_container, self.output)
 
-        # Display date range selector and fetch data button
-        display(self.date_range, self.fetch_data_button)
-        
-        # Output area for route metadata and data preview
-        display(self.output)
+    def fetch_routes(self):
+        routes = self.api.fetch_routes()
+        route_buttons = []
+        for route in routes:
+            button = widgets.Button(description=route["name"], layout=widgets.Layout(width='90%', margin='2px'), button_style="info")
+            button.on_click(lambda b, r=route: self.on_route_selected(r))
+            route_buttons.append(button)
+        self.route_buttons_container.children = route_buttons
 
-    def display_route_info(self, route):
-        # Display route metadata in the output area
+    def on_route_selected(self, route):
+        with self.output:
+            print(f"Selected route: {route['name']}")
+
+        # Display data selection elements for `retail-sales` route below the main buttons
+        if route["id"] == "retail-sales":
+            self.setup_retail_sales_ui()
+
+    def setup_retail_sales_ui(self):
         with self.output:
             clear_output(wait=True)
-            print(f"ID: {route['id']}")
-            print(f"Name: {route['name']}")
-            print(f"Description: {route['description']}")
+            print("Configuring Retail Sales Options...")
 
-        # Save selected route ID for later data fetching
-        self.selected_route_id = route["id"]
+        # Configure frequency options
+        self.frequency_dropdown.options = ["Monthly", "Quarterly", "Annual"]
+        self.frequency_dropdown.value = "Monthly"
+        self.frequency_dropdown.disabled = False
+
+        # Populate state and sector dropdowns
+        self.state_dropdown.options = self.api.fetch_state_options()
+        self.sector_dropdown.options = self.api.fetch_sector_options()
+        self.state_dropdown.disabled = False
+        self.sector_dropdown.disabled = False
+
+        # Enable data checkboxes and fetch button
+        for checkbox in self.data_checkboxes.values():
+            checkbox.disabled = False
+        self.fetch_data_button.disabled = False
+
+        # Display configuration UI below main buttons without clearing them
+        display(self.frequency_dropdown, self.state_dropdown, self.sector_dropdown)
+        display(*self.data_checkboxes.values())
+        display(self.fetch_data_button)
 
     def fetch_data(self, b):
-        # Ensure an API key is available
-        eia_api_key = self.eia_api_key if DEVELOPMENT else self.eia_api_key_input.value
-        if not eia_api_key:
+        # Collect the necessary parameters from UI components
+        frequency = self.frequency_dropdown.value.lower()  # Convert frequency to lowercase to match the API parameter format
+        state = self.state_dropdown.value
+        sector = self.sector_dropdown.value
+        data_fields = [key for key, checkbox in self.data_checkboxes.items() if checkbox.value]
+
+        # Fetch and display the data
+        try:
+            # Print the full URL for debugging
+            full_url = f"{self.api.base_url}retail-sales/data/"
+            params = {
+                "api_key": self.api.api_key,
+                "frequency": frequency,
+                "facets[stateid][]": state,
+                "facets[sectorid][]": sector,
+                "data[]": data_fields,
+            }
+            print(f"Full Data Fetch URL: {full_url}?{requests.compat.urlencode(params, doseq=True)}")
+
+            data = self.api.fetch_data("retail-sales", frequency, state, sector, data_fields)
             with self.output:
                 clear_output(wait=True)
-                print("Please enter a valid EIA API Key.")
-            return
-
-        # Set up date range based on selected option
-        date_ranges = {
-            'Last Month': ('2023-09-01', '2023-09-30'),
-            'Last Quarter': ('2023-07-01', '2023-09-30'),
-            'Last Year': ('2023-01-01', '2023-12-31')
-        }
-        start_date, end_date = date_ranges[self.date_range.value]
-
-        # Fetch data for the selected route
-        if hasattr(self, 'selected_route_id'):
-            try:
-                df = self.eia_api.fetch_data(self.selected_route_id, start_date, end_date)
-                with self.output:
-                    clear_output(wait=True)
-                    print(f"Data for route: {self.selected_route_id}")
-                    display(df.head())  # Display a preview of the fetched data
-            except Exception as e:
-                with self.output:
-                    print(f"Error fetching data for route '{self.selected_route_id}': {e}")
-        else:
+                if not data.empty:
+                    display(data)
+                else:
+                    print("No data returned.")
+        except Exception as e:
             with self.output:
-                print("Please select a route to fetch data.")
+                print(f"Error fetching data for retail-sales: {e}")
