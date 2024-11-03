@@ -1,6 +1,7 @@
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 from eia_api import EIAAPI
+from chat_gpt_api import ChatGPTAPI
 from dotenv import load_dotenv
 from ipywidgets import Textarea
 import os
@@ -10,39 +11,6 @@ import requests
 load_dotenv("api.env")
 EIA_API_KEY = os.getenv("EIA_API_KEY")
 CHAT_GPT_API_KEY = os.getenv("CHAT_GPT_API_KEY")
-
-class ChatGPTAPI:
-    def __init__(self, api_key):
-        self.api_key = api_key
-        self.base_url = "https://api.openai.com/v1/chat/completions"
-
-    def analyze_data(self, prompt):
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "model": "gpt-4",  # Change to "gpt-3.5-turbo" if necessary
-            "messages": [
-                {"role": "system", "content": "You are an AI that helps analyze datasets for cost optimization in energy usage."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.7
-        }
-
-        # Make the request to the ChatGPT API
-        response = requests.post(self.base_url, headers=headers, json=data)
-        result = response.json()
-
-        # Debug print the response JSON
-        print(f"Response JSON received: {result}")
-
-        if 'choices' in result:
-            return result['choices'][0]['message']['content']
-        else:
-            error_message = result.get("error", {}).get("message", "Unknown error")
-            return f"Error: {error_message}"
-
 
 class EnergyCostOptimizationInterface:
     def __init__(self):
