@@ -23,24 +23,16 @@ class EnergyCostOptimizationInterface:
 
         # Main route buttons
         self.route_buttons_container = widgets.VBox()
-        
+
         # UI elements for route-specific options
         self.frequency_dropdown = widgets.Dropdown(description='Frequency:', options=[], disabled=True)
-        self.state_dropdown = widgets.Dropdown(description='State:', options=[], disabled=True)
-        self.sector_dropdown = widgets.Dropdown(description='Sector:', options=[], disabled=True)
-        
-        # Data selection checkboxes
-        self.data_checkboxes = {
-            "revenue": widgets.Checkbox(description="Revenue (million dollars)", value=False),
-            "sales": widgets.Checkbox(description="Sales (million kWh)", value=False),
-            "price": widgets.Checkbox(description="Price (cents/kWh)", value=False),
-            "customers": widgets.Checkbox(description="Customers (number)", value=False)
-        }
+        self.facet_dropdowns = {}  # Dynamic facets
+        self.data_field_checkboxes = {}  # Dynamic data fields
 
         # Buttons for fetching data and running analysis
         self.fetch_data_button = widgets.Button(description="Fetch Data", button_style="info", disabled=True)
         self.run_analysis_button = widgets.Button(description="Run Analysis", button_style="success", disabled=True)
-        
+
         # Bind button actions
         self.fetch_data_button.on_click(self.fetch_data)
         self.run_analysis_button.on_click(self.run_analysis)
@@ -68,42 +60,74 @@ class EnergyCostOptimizationInterface:
             clear_output(wait=True)
             print(f"Selected route: {route['name']}")
 
-        # Setup UI options for retail-sales route
-        if route["id"] == "retail-sales":
-            self.setup_retail_sales_ui()
+        self.selected_route = route  # Store selected route
 
-    def setup_retail_sales_ui(self):
-        # Configure dropdowns and checkboxes for retail-sales route
-        self.frequency_dropdown.options = ["Monthly", "Quarterly", "Annual"]
-        self.frequency_dropdown.value = "Monthly"
-        self.frequency_dropdown.disabled = False
+        # Setup UI options based on the selected route
+        self.setup_route_ui(route)
 
-        # Populate state and sector dropdowns
-        self.state_dropdown.options = self.api.fetch_state_options()
-        self.sector_dropdown.options = self.api.fetch_sector_options()
-        self.state_dropdown.disabled = False
-        self.sector_dropdown.disabled = False
+    def setup_route_ui(self, route):
+        # Reset UI elements
+        self.frequency_dropdown.options = []
+        self.frequency_dropdown.disabled = True
+        self.facet_dropdowns = {}
+        self.data_field_checkboxes = {}
 
-        # Enable checkboxes and fetch data button
-        for checkbox in self.data_checkboxes.values():
-            checkbox.disabled = False
+        # Fetch route details
+        route_details = self.api.fetch_route_details(route["id"])
+
+        if not route_details:
+            with self.output:
+                print("Failed to fetch route details.")
+            return
+
+        # Configure frequency options
+        frequencies = [freq["id"].capitalize() for freq in route_details.get("frequency", [])]
+        if frequencies:
+            self.frequency_dropdown.options = frequencies
+            self.frequency_dropdown.value = route_details.get("defaultFrequency", frequencies[0]).capitalize()
+            self.frequency_dropdown.disabled = False
+
+        # Configure facet dropdowns
+        facets = route_details.get("facets", [])
+        self.facet_dropdowns = {}
+        for facet in facets:
+            options = self.api.fetch_facet_options(route["id"], facet["id"])
+            if options:
+                dropdown = widgets.Dropdown(description=f'{facet["description"]}:', options=options, disabled=False)
+                self.facet_dropdowns[facet["id"]] = dropdown
+
+        # Configure data fields
+        data_fields = self.api.fetch_data_fields(route["id"])
+        if data_fields:
+            self.data_field_checkboxes = {field_id: widgets.Checkbox(description=alias, value=False) for alias, field_id in data_fields}
+
+        # Enable fetch data button
         self.fetch_data_button.disabled = False
-        self.run_analysis_button.disabled = True  # Disable analysis button until data is fetched
+        self.run_analysis_button.disabled = True  # Disable until data is fetched
 
-        # Display configuration UI below main buttons without clearing them
+        # Display configuration UI
         with self.output:
             clear_output(wait=True)
-            display(self.frequency_dropdown, self.state_dropdown, self.sector_dropdown)
-            display(*self.data_checkboxes.values())
-            display(self.fetch_data_button)  # Display Fetch Data button
-            display(self.run_analysis_button)  # Display Run Analysis button separately
+            display(self.frequency_dropdown)
+            for dropdown in self.facet_dropdowns.values():
+                display(dropdown)
+            for checkbox in self.data_field_checkboxes.values():
+                display(checkbox)
+            display(self.fetch_data_button)
+            display(self.run_analysis_button)
 
     def fetch_data(self, b):
         # Gather parameters from UI
         frequency = self.frequency_dropdown.value.lower()
-        state = self.state_dropdown.value
-        sector = self.sector_dropdown.value
-        data_fields = [k for k, v in self.data_checkboxes.items() if v.value]
+
+        # Collect selected facets
+        facets = {}
+        for facet_id, dropdown in self.facet_dropdowns.items():
+            selected_value = dropdown.value
+            facets[facet_id] = selected_value
+
+        # Collect selected data fields
+        data_fields = [field_id for field_id, checkbox in self.data_field_checkboxes.items() if checkbox.value]
 
         if not data_fields:
             with self.output:
@@ -113,14 +137,13 @@ class EnergyCostOptimizationInterface:
 
         # API call to fetch data
         try:
-            full_data = self.api.fetch_data("retail-sales", frequency, state, sector, data_fields)
-            
+            full_data = self.api.fetch_data(self.selected_route["id"], frequency, facets, data_fields)
+
             if not full_data.empty:
                 sorted_data = full_data.sort_values(by="period", ascending=False)
-                mandatory_columns = ["period", "stateid", "stateDescription", "sectorid"]
-                selected_columns = mandatory_columns + [col for col in data_fields if col in sorted_data.columns]
-                self.data = sorted_data.head(5)[selected_columns]
-                
+                # Select columns to display
+                self.data = sorted_data.head(10)  # Adjust as needed
+
                 with self.output:
                     clear_output(wait=True)
                     display(self.data)
@@ -130,10 +153,11 @@ class EnergyCostOptimizationInterface:
                 with self.output:
                     clear_output(wait=True)
                     print("No data returned.")
-                    
+
         except Exception as e:
             with self.output:
-                print(f"Error fetching data for retail-sales: {e}")
+                print(f"Error fetching data for {self.selected_route['id']}: {e}")
+
 
     def display_analysis_result(self, result_text):
         text_area = Textarea(
@@ -149,34 +173,31 @@ class EnergyCostOptimizationInterface:
             print("Starting analysis. This may take a few moments...")
 
         # Generate prompt from the data
-        prompt = f"""Analyze the following dataset to suggest ways for cost optimization in energy usage. 
-        Don't complain about any lack of data, just use what you have. Try to use numbers from the dataset as much as you can, using examples when possible.
-        Mention that these improvements in efficiency can be done by the company LōD. 
-        Take into account the following data about LōD. There's no need to cite everything, just use what you think is relevant: 
-        1. LŌD’s platform is designed for mission-critical environments where availability comes first. With built-in redundancy, 
-        failover mechanisms, and the ability to scale across multiple sites and devices, LōD ensures reliability and high availability for industries that demand consistent, uninterrupted operations.
-        2. LōD is evolving with AI at its core, leveraging the strengths of LLMs for real-time monitoring, anomaly detection, and predictive maintenance. 
-        This allows customers to proactively optimize operations and reduce downtime by making smarter, data-driven decisions. 
-        3. Created by a team of experts with deep knowledge of energy markets and industrial operations, LōD is designed to meet the unique needs of industries that require precise energy management. 
-        This expertise allows LōD to offer tailored solutions for managing operations based on grid conditions, optimizing energy costs, and maintaining peak operational performance. 
-        4. LōD provides 24/7 customer support with a dedicated team of experts ensuring smooth operations and minimal downtime. 
-        The platform’s rapid response to issues, combined with tailored onboarding and training, allows clients to integrate LōD seamlessly into their operations 
-        while receiving continuous guidance and troubleshooting assistance.
-        5. LŌD Integrates with major DCIM platforms to implement advanced temperature management strategies to maintain quality of service 
-        and decrease carbon emissions based on RAILS no-code programming language. 
-        6. Mission-Critical datacenters rely on multiple energy sources to ensure availability and quality of service. 
-        LŌD optimizes orchestration of energy resources to maximize profits, minimize carbon emissions and improve economics for datacenters. 
-        7. Participate in demand response programs and avoid peaks by designing your multi-layer energy strategy based on real-time data from over 20,000 grid nodes.
-        8. Trade energy and ancillaries in the Day-Ahead-Market and lock-in opportunities based on your unique advantages.
-        {self.data.to_string()}
-        """
+        data_str = self.data.to_string()
+
+        prompt = f"""Analyze the following dataset to suggest ways for cost optimization in energy usage.
+    Don't complain about any lack of data, just use what you have. Try to use numbers from the dataset as much as you can, using examples when possible.
+    Mention that these improvements in efficiency can be done by the company LōD.
+    Take into account the following data about LōD (there's no need to cite everything, just use what you think is relevant):
+
+    1. LŌD’s platform is designed for mission-critical environments where availability comes first. With built-in redundancy, failover mechanisms, and the ability to scale across multiple sites and devices, LōD ensures reliability and high availability for industries that demand consistent, uninterrupted operations.
+    2. LōD is evolving with AI at its core, leveraging the strengths of LLMs for real-time monitoring, anomaly detection, and predictive maintenance. This allows customers to proactively optimize operations and reduce downtime by making smarter, data-driven decisions.
+    3. Created by a team of experts with deep knowledge of energy markets and industrial operations, LōD is designed to meet the unique needs of industries that require precise energy management. This expertise allows LōD to offer tailored solutions for managing operations based on grid conditions, optimizing energy costs, and maintaining peak operational performance.
+    4. LōD provides 24/7 customer support with a dedicated team of experts ensuring smooth operations and minimal downtime. The platform’s rapid response to issues, combined with tailored onboarding and training, allows clients to integrate LōD seamlessly into their operations while receiving continuous guidance and troubleshooting assistance.
+    5. LŌD Integrates with major DCIM platforms to implement advanced temperature management strategies to maintain quality of service and decrease carbon emissions based on RAILS no-code programming language.
+    6. Mission-Critical datacenters rely on multiple energy sources to ensure availability and quality of service. LŌD optimizes orchestration of energy resources to maximize profits, minimize carbon emissions and improve economics for datacenters.
+    7. Participate in demand response programs and avoid peaks by designing your multi-layer energy strategy based on real-time data from over 20,000 grid nodes.
+    8. Trade energy and ancillaries in the Day-Ahead-Market and lock-in opportunities based on your unique advantages.
+
+    {data_str}
+    """
 
         # Fetch AI analysis result from ChatGPTAPI
         result = self.chat_gpt_api.analyze_data(prompt)
 
         with self.output:
             clear_output(wait=True)
-            if result.startswith("Error"):
-                print(result)
+            if "error" in result:
+                print(result["error"])
             else:
-                self.display_analysis_result(result)
+                self.display_analysis_result(result["generated_text"])
