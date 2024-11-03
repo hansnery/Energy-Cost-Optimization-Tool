@@ -1,0 +1,3 @@
+{
+    "inputs": "Analyze the following limited dataset to suggest ways for cost optimization in energy usage:\n period  stateid  stateDescription  sectorid  sectorName   revenue       revenue-units\n 2018-03      IN           Indiana      COM  commercial  202.7264    million dollars\n 2017-07      IN           Indiana      COM  commercial  238.09444   million dollars\n 2010-01      IN           Indiana      COM  commercial  161.49355   million dollars\n 2019-12      IN           Indiana      COM  commercial  194.79783   million dollars\n 2015-03      IN           Indiana      COM  commercial  193.271775  million dollars"
+}

@@ -1,15 +1,48 @@
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 from eia_api import EIAAPI
-from hf_api import HFAPI
 from dotenv import load_dotenv
 from ipywidgets import Textarea
 import os
+import requests
 
 # Load environment variables from api.env
 load_dotenv("api.env")
 EIA_API_KEY = os.getenv("EIA_API_KEY")
-HF_API_KEY = os.getenv("HF_API_KEY")
+CHAT_GPT_API_KEY = os.getenv("CHAT_GPT_API_KEY")
+
+class ChatGPTAPI:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "https://api.openai.com/v1/chat/completions"
+
+    def analyze_data(self, prompt):
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": "gpt-4",  # Change to "gpt-3.5-turbo" if necessary
+            "messages": [
+                {"role": "system", "content": "You are an AI that helps analyze datasets for cost optimization in energy usage."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.7
+        }
+
+        # Make the request to the ChatGPT API
+        response = requests.post(self.base_url, headers=headers, json=data)
+        result = response.json()
+
+        # Debug print the response JSON
+        print(f"Response JSON received: {result}")
+
+        if 'choices' in result:
+            return result['choices'][0]['message']['content']
+        else:
+            error_message = result.get("error", {}).get("message", "Unknown error")
+            return f"Error: {error_message}"
+
 
 class EnergyCostOptimizationInterface:
     def __init__(self):
@@ -17,7 +50,7 @@ class EnergyCostOptimizationInterface:
         self.output = widgets.Output()
         self.url_output = widgets.Output()  # Separate output for URL
         self.api = EIAAPI(api_key=EIA_API_KEY)
-        self.hf_api = HFAPI(api_key=HF_API_KEY)
+        self.chat_gpt_api = ChatGPTAPI(api_key=CHAT_GPT_API_KEY)
         self.data = None  # Initialize data attribute to store fetched data
 
         # Main route buttons
@@ -112,30 +145,19 @@ class EnergyCostOptimizationInterface:
 
         # API call to fetch data
         try:
-            # Fetch the full dataset
             full_data = self.api.fetch_data("retail-sales", frequency, state, sector, data_fields)
             
-            # Check if the dataset is not empty
             if not full_data.empty:
-                # Sort data by 'period' column in descending order
                 sorted_data = full_data.sort_values(by="period", ascending=False)
-                
-                # Define columns to keep based on available columns and selected data fields
                 mandatory_columns = ["period", "stateid", "stateDescription", "sectorid"]
                 selected_columns = mandatory_columns + [col for col in data_fields if col in sorted_data.columns]
-                
-                # Select the latest 5 rows with the chosen columns
                 self.data = sorted_data.head(5)[selected_columns]
                 
-                # Display the limited dataset in the output
                 with self.output:
                     clear_output(wait=True)
                     display(self.data)
-                    
-                    # Enable and display the Run Analysis button after data is fetched
                     self.run_analysis_button.disabled = False
                     display(self.run_analysis_button)
-                    
             else:
                 with self.output:
                     clear_output(wait=True)
@@ -145,9 +167,7 @@ class EnergyCostOptimizationInterface:
             with self.output:
                 print(f"Error fetching data for retail-sales: {e}")
 
-
     def display_analysis_result(self, result_text):
-        # Displaying the AI result in a TextArea for proper wrapping
         text_area = Textarea(
             value=result_text,
             disabled=True,
@@ -160,25 +180,35 @@ class EnergyCostOptimizationInterface:
             clear_output(wait=True)
             print("Starting analysis. This may take a few moments...")
 
-        # Simple prompt for testing
-        # prompt = "Analyze the following limited dataset to suggest ways for cost optimization in energy usage:\n" + self.data.to_string()
-        prompt = self.data.to_string()
+        # Generate prompt from the data
+        prompt = f"""Analyze the following dataset to suggest ways for cost optimization in energy usage. 
+        Don't complain about any lack of data, just use what you have. Try to use numbers from the dataset as much as you can, using examples when possible.
+        Mention that these improvements in efficiency can be done by the company LōD. 
+        Take into account the following data about LōD. There's no need to cite everything, just use what you think is relevant: 
+        1. LŌD’s platform is designed for mission-critical environments where availability comes first. With built-in redundancy, 
+        failover mechanisms, and the ability to scale across multiple sites and devices, LōD ensures reliability and high availability for industries that demand consistent, uninterrupted operations.
+        2. LōD is evolving with AI at its core, leveraging the strengths of LLMs for real-time monitoring, anomaly detection, and predictive maintenance. 
+        This allows customers to proactively optimize operations and reduce downtime by making smarter, data-driven decisions. 
+        3. Created by a team of experts with deep knowledge of energy markets and industrial operations, LōD is designed to meet the unique needs of industries that require precise energy management. 
+        This expertise allows LōD to offer tailored solutions for managing operations based on grid conditions, optimizing energy costs, and maintaining peak operational performance. 
+        4. LōD provides 24/7 customer support with a dedicated team of experts ensuring smooth operations and minimal downtime. 
+        The platform’s rapid response to issues, combined with tailored onboarding and training, allows clients to integrate LōD seamlessly into their operations 
+        while receiving continuous guidance and troubleshooting assistance.
+        5. LŌD Integrates with major DCIM platforms to implement advanced temperature management strategies to maintain quality of service 
+        and decrease carbon emissions based on RAILS no-code programming language. 
+        6. Mission-Critical datacenters rely on multiple energy sources to ensure availability and quality of service. 
+        LŌD optimizes orchestration of energy resources to maximize profits, minimize carbon emissions and improve economics for datacenters. 
+        7. Participate in demand response programs and avoid peaks by designing your multi-layer energy strategy based on real-time data from over 20,000 grid nodes.
+        8. Trade energy and ancillaries in the Day-Ahead-Market and lock-in opportunities based on your unique advantages.
+        {self.data.to_string()}
+        """
 
-        # Fetch AI analysis result from HFAPI
-        result = self.hf_api.analyze_data(prompt)
+        # Fetch AI analysis result from ChatGPTAPI
+        result = self.chat_gpt_api.analyze_data(prompt)
 
         with self.output:
             clear_output(wait=True)
-
-            if 'error' in result:
-                print(f"Error during analysis: {result['error']}")
+            if result.startswith("Error"):
+                print(result)
             else:
-                # Check if the result contains generated_text and extract it
-                if isinstance(result, list) and len(result) > 0:
-                    analysis_text = result[0].get('generated_text', "No text generated.")
-                else:
-                    analysis_text = result.get('generated_text', "No text generated.")
-
-                # Display the analysis result with text wrapping for readability
-                self.display_analysis_result(analysis_text)
-
+                self.display_analysis_result(result)
