@@ -1,9 +1,12 @@
+# eia_api.py
+
 import requests
 import pandas as pd
 import logging
+from datetime import datetime, timedelta
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)  # You can adjust the level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+logging.basicConfig(level=logging.DEBUG)  # Set to DEBUG for detailed logs
 
 class EIAAPI:
     def __init__(self, api_key):
@@ -73,11 +76,27 @@ class EIAAPI:
             response = requests.get(url, params=params)
             response.raise_for_status()
             data = response.json()
-            options = [(item["name"], item["id"]) for item in data["response"]["facets"]]
+
+            # Log the API response for debugging
+            logging.debug(f"API response for facet '{facet_id}': {data}")
+
+            # Access the facet values
+            if "response" in data and "facets" in data["response"]:
+                values = data["response"]["facets"]
+            else:
+                logging.error(f"Facet '{facet_id}' not found in response.")
+                return []
+
+            # Construct options as (option_name, option_id)
+            options = [(f"{item['name']} ({item['id']})", item["id"]) for item in values]
+
             logging.info(f"Successfully fetched facet options for '{facet_id}' in route '{route_id}'.")
             return options
         except requests.RequestException as e:
             logging.error(f"Error fetching facet options for '{facet_id}' in route '{route_id}': {e}")
+            return []
+        except KeyError as e:
+            logging.error(f"Key error when fetching facet options for '{facet_id}': {e}")
             return []
 
     def fetch_data_fields(self, route_id):
@@ -99,7 +118,7 @@ class EIAAPI:
             logging.warning(f"No data fields found for route '{route_id}'.")
             return []
 
-    def fetch_data(self, route_id, frequency, facets, data_fields):
+    def fetch_data(self, route_id, frequency, facets, data_fields, start_date=None, end_date=None):
         """
         Fetches data from the EIA API based on the specified parameters.
 
@@ -108,6 +127,8 @@ class EIAAPI:
             frequency (str): The frequency of the data (e.g., 'monthly').
             facets (dict): A dictionary of facet IDs to their selected values (list or single value).
             data_fields (list): A list of data field IDs to include in the response.
+            start_date (str): The start date in 'YYYY-MM' format.
+            end_date (str): The end date in 'YYYY-MM' format.
 
         Returns:
             pandas.DataFrame: A DataFrame containing the fetched data.
@@ -129,6 +150,27 @@ class EIAAPI:
         # Add data fields
         for i, field in enumerate(data_fields):
             params[f"data[{i}]"] = field
+
+        # Adjust start and end dates according to EIA API requirements
+        if start_date:
+            # For monthly data, the start date should be one day before the desired first month
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m')
+                adjusted_start_dt = start_dt - timedelta(days=1)
+                adjusted_start_date = adjusted_start_dt.strftime('%Y-%m-%d')
+                params["start"] = adjusted_start_date
+            except ValueError:
+                logging.error("Invalid start_date format. Expected 'YYYY-MM'.")
+                return pd.DataFrame()
+        if end_date:
+            # For monthly data, the end date should be the first day of the desired last month
+            try:
+                end_dt = datetime.strptime(end_date, '%Y-%m')
+                adjusted_end_date = end_dt.strftime('%Y-%m-%d')
+                params["end"] = adjusted_end_date
+            except ValueError:
+                logging.error("Invalid end_date format. Expected 'YYYY-MM'.")
+                return pd.DataFrame()
 
         try:
             # Construct the full URL for debugging

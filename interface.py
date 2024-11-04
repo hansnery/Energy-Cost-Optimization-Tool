@@ -1,25 +1,34 @@
+# interface.py
+
 import ipywidgets as widgets
 from IPython.display import display, clear_output
-from eia_api import EIAAPI
-from chat_gpt_api import ChatGPTAPI
-from dotenv import load_dotenv
 from ipywidgets import Textarea
 import os
 import requests
+import pandas as pd
+from dotenv import load_dotenv
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Load environment variables from api.env
 load_dotenv("api.env")
 EIA_API_KEY = os.getenv("EIA_API_KEY")
 CHAT_GPT_API_KEY = os.getenv("CHAT_GPT_API_KEY")
 
+# Import the API classes
+from eia_api import EIAAPI
+from chat_gpt_api import ChatGPTAPI
+
 class EnergyCostOptimizationInterface:
     def __init__(self):
         # Initialize API and output widgets
         self.output = widgets.Output()
-        self.url_output = widgets.Output()  # Separate output for URL
+        self.url_output = widgets.Output()
         self.api = EIAAPI(api_key=EIA_API_KEY)
         self.chat_gpt_api = ChatGPTAPI(api_key=CHAT_GPT_API_KEY)
-        self.data = None  # Initialize data attribute to store fetched data
+        self.data = None
 
         # Main route buttons
         self.route_buttons_container = widgets.VBox()
@@ -28,6 +37,10 @@ class EnergyCostOptimizationInterface:
         self.frequency_dropdown = widgets.Dropdown(description='Frequency:', options=[], disabled=True)
         self.facet_dropdowns = {}  # Dynamic facets
         self.data_field_checkboxes = {}  # Dynamic data fields
+
+        # Date range widgets
+        self.start_date_dropdown = None
+        self.end_date_dropdown = None
 
         # Buttons for fetching data and running analysis
         self.fetch_data_button = widgets.Button(description="Fetch Data", button_style="info", disabled=True)
@@ -66,8 +79,15 @@ class EnergyCostOptimizationInterface:
         self.setup_route_ui(route)
 
     def setup_route_ui(self, route):
+        # Unobserve frequency dropdown to prevent triggering on reset
+        try:
+            self.frequency_dropdown.unobserve(self.on_frequency_change, names='value')
+        except ValueError:
+            pass  # The handler was not registered, so we can ignore this error
+
         # Reset UI elements
         self.frequency_dropdown.options = []
+        self.frequency_dropdown.value = None  # Explicitly set value to None
         self.frequency_dropdown.disabled = True
         self.facet_dropdowns = {}
         self.data_field_checkboxes = {}
@@ -84,8 +104,12 @@ class EnergyCostOptimizationInterface:
         frequencies = [freq["id"].capitalize() for freq in route_details.get("frequency", [])]
         if frequencies:
             self.frequency_dropdown.options = frequencies
-            self.frequency_dropdown.value = route_details.get("defaultFrequency", frequencies[0]).capitalize()
+            default_frequency = route_details.get("defaultFrequency", frequencies[0]).capitalize()
+            self.frequency_dropdown.value = default_frequency
             self.frequency_dropdown.disabled = False
+
+        # Re-observe changes to frequency dropdown
+        self.frequency_dropdown.observe(self.on_frequency_change, names='value')
 
         # Configure facet dropdowns
         facets = route_details.get("facets", [])
@@ -95,11 +119,17 @@ class EnergyCostOptimizationInterface:
             if options:
                 dropdown = widgets.Dropdown(description=f'{facet["description"]}:', options=options, disabled=False)
                 self.facet_dropdowns[facet["id"]] = dropdown
+            else:
+                with self.output:
+                    print(f"No options available for facet '{facet['description']}'.")
 
         # Configure data fields
         data_fields = self.api.fetch_data_fields(route["id"])
         if data_fields:
             self.data_field_checkboxes = {field_id: widgets.Checkbox(description=alias, value=False) for alias, field_id in data_fields}
+
+        # Initial setup of date range
+        self.update_date_range(route)
 
         # Enable fetch data button
         self.fetch_data_button.disabled = False
@@ -111,10 +141,100 @@ class EnergyCostOptimizationInterface:
             display(self.frequency_dropdown)
             for dropdown in self.facet_dropdowns.values():
                 display(dropdown)
+            if self.start_date_dropdown and self.end_date_dropdown:
+                display(self.start_date_dropdown, self.end_date_dropdown)
             for checkbox in self.data_field_checkboxes.values():
                 display(checkbox)
             display(self.fetch_data_button)
             display(self.run_analysis_button)
+
+    def on_frequency_change(self, change):
+        # Update date range when frequency changes
+        self.update_date_range(self.selected_route)
+
+    def update_date_range(self, route):
+        # Collect selected facets
+        facets = {}
+        for facet_id, dropdown in self.facet_dropdowns.items():
+            selected_value = dropdown.value
+            facets[facet_id] = selected_value
+
+        frequency = self.frequency_dropdown.value
+        if frequency is None:
+            logging.warning("Frequency is None. Skipping update_date_range.")
+            return
+
+        available_periods = self.fetch_available_periods(
+            route["id"], frequency, facets
+        )
+
+        if available_periods:
+            default_end_date = available_periods[-1]
+            default_start_date = available_periods[-12] if len(available_periods) >= 12 else available_periods[0]
+
+            if not self.start_date_dropdown:
+                self.start_date_dropdown = widgets.Dropdown(description='Start Date:', options=available_periods)
+            else:
+                self.start_date_dropdown.options = available_periods
+            self.start_date_dropdown.value = default_start_date
+
+            if not self.end_date_dropdown:
+                self.end_date_dropdown = widgets.Dropdown(description='End Date:', options=available_periods)
+            else:
+                self.end_date_dropdown.options = available_periods
+            self.end_date_dropdown.value = default_end_date
+        else:
+            self.start_date_dropdown = None
+            self.end_date_dropdown = None
+
+    def fetch_available_periods(self, route_id, frequency, facets):
+        url = f"{self.api.base_url}{route_id}/data/"
+        params = {
+            "api_key": self.api.api_key,
+            "frequency": frequency.lower(),
+            "offset": 0,
+            "length": 1  # Initial request to get total number of records
+        }
+
+        # Add facets to params
+        for facet_id, value in facets.items():
+            params[f"facets[{facet_id}][]"] = value
+
+        # Add a minimal data field to get data back (choose an available data field)
+        params["data[]"] = "price"  # Replace 'price' with an appropriate data field if necessary
+
+        try:
+            # Debug logging
+            full_url = requests.Request('GET', url, params=params).prepare().url
+            logging.debug(f"Full URL for fetching available periods: {full_url}")
+
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            if "response" in data and "total" in data["response"]:
+                total_records = data["response"]["total"]
+                logging.debug(f"Total records available: {total_records}")
+            else:
+                logging.error("Unexpected data structure in API response.")
+                return []
+
+            # Now fetch all periods using the total_records as length
+            params["length"] = total_records  # Fetch all records
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            if "response" in data and "data" in data["response"]:
+                periods = [item["period"] for item in data["response"]["data"]]
+                unique_periods = sorted(set(periods))
+                return unique_periods
+            else:
+                logging.error("Unexpected data structure in API response.")
+                return []
+        except requests.RequestException as e:
+            logging.error(f"Error fetching periods for {route_id}: {e}")
+            return []
 
     def fetch_data(self, b):
         # Gather parameters from UI
@@ -135,14 +255,32 @@ class EnergyCostOptimizationInterface:
                 print("Please select at least one data field.")
             return
 
+        # Collect start and end dates
+        start_date = self.start_date_dropdown.value if self.start_date_dropdown else None
+        end_date = self.end_date_dropdown.value if self.end_date_dropdown else None
+
+        if start_date and end_date:
+            if start_date > end_date:
+                with self.output:
+                    clear_output(wait=True)
+                    print("Start Date must be earlier than End Date.")
+                return
+
         # API call to fetch data
         try:
-            full_data = self.api.fetch_data(self.selected_route["id"], frequency, facets, data_fields)
+            full_data = self.api.fetch_data(
+                self.selected_route["id"],
+                frequency,
+                facets,
+                data_fields,
+                start_date=start_date,
+                end_date=end_date
+            )
 
             if not full_data.empty:
                 sorted_data = full_data.sort_values(by="period", ascending=False)
                 # Select columns to display
-                self.data = sorted_data.head(10)  # Adjust as needed
+                self.data = sorted_data  # Adjust as needed
 
                 with self.output:
                     clear_output(wait=True)
@@ -157,7 +295,6 @@ class EnergyCostOptimizationInterface:
         except Exception as e:
             with self.output:
                 print(f"Error fetching data for {self.selected_route['id']}: {e}")
-
 
     def display_analysis_result(self, result_text):
         text_area = Textarea(
@@ -200,4 +337,6 @@ class EnergyCostOptimizationInterface:
             if "error" in result:
                 print(result["error"])
             else:
-                self.display_analysis_result(result["generated_text"])
+                # Extract the generated text before passing it to display_analysis_result
+                generated_text = result["generated_text"]
+                self.display_analysis_result(generated_text)
