@@ -266,7 +266,7 @@ class EnergyCostOptimizationInterface:
                     print("Start Date must be earlier than End Date.")
                 return
 
-        # API call to fetch data
+        # API call to fetch data with max_rows=10
         try:
             full_data = self.api.fetch_data(
                 self.selected_route["id"],
@@ -274,16 +274,16 @@ class EnergyCostOptimizationInterface:
                 facets,
                 data_fields,
                 start_date=start_date,
-                end_date=end_date
+                end_date=end_date,
+                max_rows=10  # Limit to 10 rows
             )
 
             if not full_data.empty:
                 sorted_data = full_data.sort_values(by="period", ascending=False)
-                # Select columns to display
-                self.data = sorted_data  # Adjust as needed
-
+                self.data = sorted_data
                 with self.output:
                     clear_output(wait=True)
+                    print("Data fetched (limited to a maximum of 10 rows):")
                     display(self.data)
                     self.run_analysis_button.disabled = False
                     display(self.run_analysis_button)
@@ -295,6 +295,7 @@ class EnergyCostOptimizationInterface:
         except Exception as e:
             with self.output:
                 print(f"Error fetching data for {self.selected_route['id']}: {e}")
+
 
     def display_analysis_result(self, result_text):
         text_area = Textarea(

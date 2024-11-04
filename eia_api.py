@@ -118,7 +118,7 @@ class EIAAPI:
             logging.warning(f"No data fields found for route '{route_id}'.")
             return []
 
-    def fetch_data(self, route_id, frequency, facets, data_fields, start_date=None, end_date=None):
+    def fetch_data(self, route_id, frequency, facets, data_fields, start_date=None, end_date=None, max_rows=None):
         """
         Fetches data from the EIA API based on the specified parameters.
 
@@ -129,6 +129,7 @@ class EIAAPI:
             data_fields (list): A list of data field IDs to include in the response.
             start_date (str): The start date in 'YYYY-MM' format.
             end_date (str): The end date in 'YYYY-MM' format.
+            max_rows (int, optional): The maximum number of rows to return. Defaults to None.
 
         Returns:
             pandas.DataFrame: A DataFrame containing the fetched data.
@@ -137,7 +138,8 @@ class EIAAPI:
 
         params = {
             "api_key": self.api_key,
-            "frequency": frequency
+            "frequency": frequency,
+            "offset": 0  # Start at the beginning
         }
 
         # Add facets to params
@@ -171,6 +173,10 @@ class EIAAPI:
             except ValueError:
                 logging.error("Invalid end_date format. Expected 'YYYY-MM'.")
                 return pd.DataFrame()
+
+        # Add max_rows to limit the number of results
+        if max_rows is not None:
+            params['length'] = max_rows
 
         try:
             # Construct the full URL for debugging
