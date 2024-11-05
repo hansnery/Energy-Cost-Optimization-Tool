@@ -20,27 +20,20 @@ logging.getLogger("Comm").setLevel(logging.WARNING)
 
 # Load environment variables from api.env
 load_dotenv("api.env")
-EIA_API_KEY = os.getenv("EIA_API_KEY")
-CHAT_GPT_API_KEY = os.getenv("CHAT_GPT_API_KEY")
-
-# Check if API keys are loaded, if not prompt the user to input them
-if not EIA_API_KEY:
-    EIA_API_KEY = input("Please enter your EIA API Key: ")
-
-if not CHAT_GPT_API_KEY:
-    CHAT_GPT_API_KEY = input("Please enter your OpenAI ChatGPT API Key: ")
-
-# Import the API classes
-from eia_api import EIAAPI
-from chat_gpt_api import ChatGPTAPI
 
 class EnergyCostOptimizationInterface:
     def __init__(self):
-        # Initialize API and output widgets
+        # Initialize output widgets
         self.output = widgets.Output()
         self.url_output = widgets.Output()
-        self.api = EIAAPI(api_key=EIA_API_KEY)
-        self.chat_gpt_api = ChatGPTAPI(api_key=CHAT_GPT_API_KEY)
+
+        # Store API keys
+        self.eia_api_key = None
+        self.chat_gpt_api_key = None
+
+        # Initialize placeholders for API and data
+        self.api = None
+        self.chat_gpt_api = None
         self.data = None
 
         # Main route buttons
@@ -64,9 +57,49 @@ class EnergyCostOptimizationInterface:
         self.fetch_data_button.on_click(self.fetch_data)
         self.run_analysis_button.on_click(self.run_analysis)
 
-        # Load routes and display interface
-        self.fetch_routes()
-        self.display_interface()
+        # Display form for API key inputs
+        self.display_api_key_form()
+
+    def display_api_key_form(self):
+        # Create input fields for EIA and ChatGPT API keys
+        eia_api_key_input = widgets.Text(description='EIA API Key:', placeholder='Enter your EIA API Key')
+        chat_gpt_api_key_input = widgets.Text(description='ChatGPT API Key:', placeholder='Enter your ChatGPT API Key')
+        submit_button = widgets.Button(description='Submit', button_style='primary')
+
+        # Display the input form
+        form = widgets.VBox([eia_api_key_input, chat_gpt_api_key_input, submit_button])
+        display(form)
+
+        # Define submit button action
+        def on_submit(b):
+            self.eia_api_key = eia_api_key_input.value
+            self.chat_gpt_api_key = chat_gpt_api_key_input.value
+
+            # Check if both API keys are provided
+            if not self.eia_api_key or not self.chat_gpt_api_key:
+                with self.output:
+                    clear_output(wait=True)
+                    print("Please provide both API keys.")
+            else:
+                # Initialize APIs
+                self.initialize_apis()
+                # Clear form and proceed
+                with self.output:
+                    clear_output(wait=True)
+                form.close()
+                self.fetch_routes()
+                self.display_interface()
+
+        submit_button.on_click(on_submit)
+
+    def initialize_apis(self):
+        # Import the API classes
+        from eia_api import EIAAPI
+        from chat_gpt_api import ChatGPTAPI
+        
+        # Initialize the APIs with the provided keys
+        self.api = EIAAPI(api_key=self.eia_api_key)
+        self.chat_gpt_api = ChatGPTAPI(api_key=self.chat_gpt_api_key)
 
     def display_interface(self):
         # Display main UI components and URL output below
@@ -99,6 +132,8 @@ class EnergyCostOptimizationInterface:
         # Set the buttons in a VBox for a vertically aligned group with centered buttons
         self.route_buttons_container.children = route_buttons
         self.route_buttons_container.layout = widgets.Layout(justify_content='center', align_items='center')
+
+    # The rest of the methods remain the same
 
     def on_route_selected(self, route):
         with self.output:
