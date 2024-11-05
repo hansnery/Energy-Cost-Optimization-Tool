@@ -70,7 +70,7 @@ These can be installed via the `requirements.txt` file as shown in the [Installa
    - Set up the environment.
    - Display the interface for you to start using immediately.
 
-   OR
+OR
 
 1. **Launch Jupyter Notebook**
    Run the Jupyter Notebook from your terminal:
