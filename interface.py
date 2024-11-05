@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 
 # Suppress debug messages from urllib3, Jupyter, traitlets, and Comm
 logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -37,6 +37,7 @@ class EnergyCostOptimizationInterface:
         self.data = None
 
         # Main route buttons
+        self.route_buttons_header = widgets.HTML("<h3>Select a Data Route:</h3>")
         self.route_buttons_container = widgets.VBox()
 
         # UI elements for route-specific options
@@ -62,7 +63,7 @@ class EnergyCostOptimizationInterface:
 
     def display_interface(self):
         # Display main UI components and URL output below
-        display(self.route_buttons_container, self.output)
+        display(self.route_buttons_header, self.route_buttons_container, self.output)
         display(self.url_output)  # Ensure this displays as a separate cell
 
     def fetch_routes(self):
@@ -72,17 +73,30 @@ class EnergyCostOptimizationInterface:
         routes = routes[:2]
 
         route_buttons = []
+        max_button_width = '350px'  # Set a fixed width that looks consistent
+
         for route in routes:
-            button = widgets.Button(description=route["name"], layout=widgets.Layout(width='90%', margin='2px'), button_style="info")
+            button = widgets.Button(
+                description=route["name"],
+                layout=widgets.Layout(
+                    width=max_button_width,  # Set the width explicitly to ensure uniformity
+                    max_width=max_button_width,
+                    min_width=max_button_width,
+                    margin='10px auto'  # Add some space for the visual appeal and center alignment
+                ),
+                button_style="info"
+            )
             button.on_click(lambda b, r=route: self.on_route_selected(r))
             route_buttons.append(button)
 
+        # Set the buttons in a VBox for a vertically aligned group with centered buttons
         self.route_buttons_container.children = route_buttons
+        self.route_buttons_container.layout = widgets.Layout(justify_content='center', align_items='center')
 
     def on_route_selected(self, route):
         with self.output:
             clear_output(wait=True)
-            print(f"Selected route: {route['name']}")
+            print(f"Loading selected route: {route['name']}\n\nPlease wait...")
 
         self.selected_route = route  # Store selected route
 
@@ -129,7 +143,7 @@ class EnergyCostOptimizationInterface:
             options = self.api.fetch_facet_options(route["id"], facet["id"])
             if options:
                 dropdown = widgets.Dropdown(description=f'{facet["description"]}:', options=options, disabled=False)
-                
+
                 # Set "all sectors (ALL)" as the default for the Sector dropdown
                 if facet["id"] == "sectorid":
                     # Set the default to "ALL" if available
@@ -146,7 +160,14 @@ class EnergyCostOptimizationInterface:
         # Configure data fields
         data_fields = self.api.fetch_data_fields(route["id"])
         if data_fields:
-            self.data_field_checkboxes = {field_id: widgets.Checkbox(description=alias, value=False) for alias, field_id in data_fields}
+            # Adjust width of checkboxes for readability
+            self.data_field_checkboxes = {
+                field_id: widgets.Checkbox(
+                    description=alias, value=False,
+                    layout=widgets.Layout(width='90%')  # Wider layout for readability
+                )
+                for alias, field_id in data_fields
+            }
 
         # Initial setup of date range
         self.update_date_range(route)
@@ -154,6 +175,15 @@ class EnergyCostOptimizationInterface:
         # Enable fetch data button
         self.fetch_data_button.disabled = False
         self.run_analysis_button.disabled = True  # Disable until data is fetched
+
+        # Arrange UI elements for better layout
+        button_container = widgets.HBox(
+            [self.fetch_data_button, self.run_analysis_button],
+            layout=widgets.Layout(
+                justify_content='center',  # Align the buttons horizontally at the center of the container
+                margin='20px auto'  # Add margin for better spacing
+            )
+        )
 
         # Display configuration UI
         with self.output:
@@ -165,8 +195,7 @@ class EnergyCostOptimizationInterface:
                 display(self.start_date_dropdown, self.end_date_dropdown)
             for checkbox in self.data_field_checkboxes.values():
                 display(checkbox)
-            display(self.fetch_data_button)
-            display(self.run_analysis_button)
+            display(button_container)
 
     def on_frequency_change(self, change):
         # Update date range when frequency changes
@@ -308,6 +337,12 @@ class EnergyCostOptimizationInterface:
                     clear_output(wait=True)
                     print("Data fetched (limited to a maximum of 10 rows):")
                     display(self.data)
+
+                    # Add margin to the top of "Run Analysis" button
+                    self.run_analysis_button.layout = widgets.Layout(
+                        margin='20px 0 0 0'  # Add 20px margin to the top
+                    )
+                    
                     self.run_analysis_button.disabled = False
                     display(self.run_analysis_button)
             else:
@@ -319,14 +354,38 @@ class EnergyCostOptimizationInterface:
             with self.output:
                 print(f"Error fetching data for {self.selected_route['id']}: {e}")
 
-
     def display_analysis_result(self, result_text):
-        text_area = Textarea(
-            value=result_text,
-            disabled=True,
-            layout=widgets.Layout(width='100%', height='300px')
+        # Adding a title above the analysis text
+        title_html = widgets.HTML(
+            value="<h4 style='text-align: center;'>AI Analysis Result:</h4>",  # Added inline CSS to center the title text
+            layout=widgets.Layout(
+                margin='0 0 10px 0',  # Add margin to separate the title from the text area
+            )
         )
-        display(text_area)
+
+        # Adding custom styles using HTML and CSS for better control
+        text_area_html = widgets.HTML(
+            value=f"""
+            <div style="
+                border: 2px solid black;  /* Border around the text area */
+                padding: 10px;  /* Padding for better readability */
+                background-color: #ffffff;  /* White background for better contrast */
+                color: #000000;  /* Black text for maximum readability */
+                font-size: 14px;  /* Larger font for better readability */
+                width: calc(100% - 20px);  /* Make it full width with padding adjustment to avoid overflow */
+                max-width: 800px;  /* Set a max-width to avoid exceeding viewport */
+                height: 300px;  /* Fixed height */
+                overflow-y: auto;  /* Enable scrolling for overflow content */
+                box-sizing: border-box;  /* Ensure padding and border are included in width calculation */
+                margin: 0 auto;  /* Center the element horizontally */
+            ">
+                {result_text}
+            </div>
+            """
+        )
+
+        # Display the title and the styled text HTML element
+        display(title_html, text_area_html)
 
     def run_analysis(self, b):
         with self.output:
@@ -336,9 +395,9 @@ class EnergyCostOptimizationInterface:
         # Generate prompt from the data
         data_str = self.data.to_string()
 
-        prompt = f"""Analyze the following dataset to suggest ways for cost optimization in energy usage.
+        prompt = f"""Analyze the following dataset to suggest ways for cost optimization in energy usage using the services by LŌD.
     Don't complain about any lack of data, just use what you have. Try to use numbers from the dataset as much as you can, using examples when possible.
-    Mention that these improvements in efficiency can be done by the company LōD.
+    Make it as if it were a marketing pitch for LŌD's services.
     Take into account the following data about LōD (there's no need to cite everything, just use what you think is relevant):
 
     1. LŌD’s platform is designed for mission-critical environments where availability comes first. With built-in redundancy, failover mechanisms, and the ability to scale across multiple sites and devices, LōD ensures reliability and high availability for industries that demand consistent, uninterrupted operations.
