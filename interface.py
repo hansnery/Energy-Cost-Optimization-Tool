@@ -23,6 +23,13 @@ load_dotenv("api.env")
 EIA_API_KEY = os.getenv("EIA_API_KEY")
 CHAT_GPT_API_KEY = os.getenv("CHAT_GPT_API_KEY")
 
+# Check if API keys are loaded, if not prompt the user to input them
+if not EIA_API_KEY:
+    EIA_API_KEY = input("Please enter your EIA API Key: ")
+
+if not CHAT_GPT_API_KEY:
+    CHAT_GPT_API_KEY = input("Please enter your OpenAI ChatGPT API Key: ")
+
 # Import the API classes
 from eia_api import EIAAPI
 from chat_gpt_api import ChatGPTAPI
