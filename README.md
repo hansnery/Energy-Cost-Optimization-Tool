@@ -63,6 +63,15 @@ These can be installed via the `requirements.txt` file as shown in the [Installa
 
 ## Usage Guide
 
+1. **Launch in Google Colab**  
+   Simply click the **Open in Google Colab** button, and the notebook will automatically:
+
+   - Clone the repository.
+   - Set up the environment.
+   - Display the interface for you to start using immediately.
+
+   OR
+
 1. **Launch Jupyter Notebook**
    Run the Jupyter Notebook from your terminal:
 
@@ -70,10 +79,10 @@ These can be installed via the `requirements.txt` file as shown in the [Installa
    jupyter notebook Energy_Cost_Optimization_Tool.ipynb
    ```
 
-2. **Select a Data Route**
+1. **Select a Data Route**
    The interface will allow you to select data routes related to electricity usage, such as "Electricity Sales to Ultimate Customers" or "Electric Power Operations".
 
-3. **Configure Data Fetching**
+1. **Configure Data Fetching**
    Use dropdowns to configure parameters like:
 
    - Frequency (Monthly, Quarterly, Annual)
@@ -81,12 +90,12 @@ These can be installed via the `requirements.txt` file as shown in the [Installa
    - Sector
    - Date Range (Start and End Dates)
 
-4. **Fetch and Analyze Data**
+1. **Fetch and Analyze Data**
 
    - Click **Fetch Data** to retrieve the information from the EIA API.
    - Click **Run Analysis** to let GPT-4 analyze the fetched data and provide insightful suggestions for energy cost optimization.
 
-5. **View Analysis**
+1. **View Analysis**
    The results from the LLM analysis will be displayed clearly in a bordered text area for easy reading.
 
 ## APIs Used
