@@ -25,27 +25,36 @@ class ChatGPTAPI:
 
         # Retry up to 3 times if the request fails
         for attempt in range(3):
-            print(f"Attempt {attempt + 1} to send data to ChatGPT model...")
-            print(f"Prompt being sent: {prompt[:500]}...")  # Show truncated prompt for debugging
+            # Commented out debugging prints to make output clearer
+            # print(f"Attempt {attempt + 1} to send data to ChatGPT model...")
+            # print(f"Prompt being sent: {prompt[:500]}...")  # Show truncated prompt for debugging
 
             response = requests.post(self.base_url, headers=headers, json=data)
-            print(f"HTTP Status Code: {response.status_code}")  # Print HTTP status code for debugging
+            
+            # Commented out debugging prints
+            # print(f"HTTP Status Code: {response.status_code}")  # Print HTTP status code for debugging
             result = response.json()
 
-            # Debug print of the response JSON
-            print(f"Response JSON received: {result}")
+            # Commented out response JSON debugging print
+            # print(f"Response JSON received: {result}")
 
             # Check for error or if response is ready
             if "error" in result:
                 error_message = result["error"].get("message", "Unknown error")
-                print(f"Error: {error_message}")
+                
+                # Commented out error handling debug prints
+                # print(f"Error: {error_message}")
+                
                 if "Rate limit" in error_message or response.status_code == 429:
-                    print("Rate limit hit, retrying in 20 seconds...")
+                    # Commented out rate limit hit debug print
+                    # print("Rate limit hit, retrying in 20 seconds...")
                     time.sleep(20)
                 else:
                     return {"error": error_message}
             else:
-                print("Model response successfully received.")
+                # Commented out success debug print
+                # print("Model response successfully received.")
+                
                 # Extract the generated response from ChatGPT
                 response_text = result['choices'][0]['message']['content']
                 return {"generated_text": response_text}

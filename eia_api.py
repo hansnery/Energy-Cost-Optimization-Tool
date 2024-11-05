@@ -8,6 +8,9 @@ from datetime import datetime, timedelta
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)  # Set to DEBUG for detailed logs
 
+# Suppress debug messages from urllib3
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 class EIAAPI:
     def __init__(self, api_key):
         """
@@ -31,10 +34,12 @@ class EIAAPI:
             response = requests.get(url)
             response.raise_for_status()
             data = response.json()
-            logging.info("Successfully fetched routes from the EIA API.")
+            # Commented out to clear the screen
+            # logging.info("Successfully fetched routes from the EIA API.")
             return data["response"]["routes"]
         except requests.RequestException as e:
-            logging.error(f"Error fetching routes: {e}")
+            # Commented out to clear the screen
+            # logging.error(f"Error fetching routes: {e}")
             return []
 
     def fetch_route_details(self, route_id):
@@ -53,10 +58,12 @@ class EIAAPI:
             response = requests.get(url, params=params)
             response.raise_for_status()
             data = response.json()
-            logging.info(f"Successfully fetched details for route '{route_id}'.")
+            # Commented out to clear the screen
+            # logging.info(f"Successfully fetched details for route '{route_id}'.")
             return data["response"]
         except requests.RequestException as e:
-            logging.error(f"Error fetching route details for '{route_id}': {e}")
+            # Commented out to clear the screen
+            # logging.error(f"Error fetching route details for '{route_id}': {e}")
             return None
 
     def fetch_facet_options(self, route_id, facet_id):
@@ -77,26 +84,30 @@ class EIAAPI:
             response.raise_for_status()
             data = response.json()
 
-            # Log the API response for debugging
-            logging.debug(f"API response for facet '{facet_id}': {data}")
+            # Commented out debug logging
+            # logging.debug(f"API response for facet '{facet_id}': {data}")
 
             # Access the facet values
             if "response" in data and "facets" in data["response"]:
                 values = data["response"]["facets"]
             else:
-                logging.error(f"Facet '{facet_id}' not found in response.")
+                # Commented out error logging
+                # logging.error(f"Facet '{facet_id}' not found in response.")
                 return []
 
             # Construct options as (option_name, option_id)
             options = [(f"{item['name']} ({item['id']})", item["id"]) for item in values]
 
-            logging.info(f"Successfully fetched facet options for '{facet_id}' in route '{route_id}'.")
+            # Commented out success logging
+            # logging.info(f"Successfully fetched facet options for '{facet_id}' in route '{route_id}'.")
             return options
         except requests.RequestException as e:
-            logging.error(f"Error fetching facet options for '{facet_id}' in route '{route_id}': {e}")
+            # Commented out error logging
+            # logging.error(f"Error fetching facet options for '{facet_id}' in route '{route_id}': {e}")
             return []
         except KeyError as e:
-            logging.error(f"Key error when fetching facet options for '{facet_id}': {e}")
+            # Commented out error logging
+            # logging.error(f"Key error when fetching facet options for '{facet_id}': {e}")
             return []
 
     def fetch_data_fields(self, route_id):
@@ -112,10 +123,12 @@ class EIAAPI:
         route_details = self.fetch_route_details(route_id)
         if route_details and "data" in route_details:
             data_fields = route_details["data"]
-            logging.info(f"Successfully fetched data fields for route '{route_id}'.")
+            # Commented out success logging
+            # logging.info(f"Successfully fetched data fields for route '{route_id}'.")
             return [(v["alias"], k) for k, v in data_fields.items()]
         else:
-            logging.warning(f"No data fields found for route '{route_id}'.")
+            # Commented out warning logging
+            # logging.warning(f"No data fields found for route '{route_id}'.")
             return []
 
     def fetch_data(self, route_id, frequency, facets, data_fields, start_date=None, end_date=None, max_rows=None):
@@ -162,7 +175,8 @@ class EIAAPI:
                 adjusted_start_date = adjusted_start_dt.strftime('%Y-%m-%d')
                 params["start"] = adjusted_start_date
             except ValueError:
-                logging.error("Invalid start_date format. Expected 'YYYY-MM'.")
+                # Commented out error logging
+                # logging.error("Invalid start_date format. Expected 'YYYY-MM'.")
                 return pd.DataFrame()
         if end_date:
             # For monthly data, the end date should be the first day of the desired last month
@@ -171,7 +185,8 @@ class EIAAPI:
                 adjusted_end_date = end_dt.strftime('%Y-%m-%d')
                 params["end"] = adjusted_end_date
             except ValueError:
-                logging.error("Invalid end_date format. Expected 'YYYY-MM'.")
+                # Commented out error logging
+                # logging.error("Invalid end_date format. Expected 'YYYY-MM'.")
                 return pd.DataFrame()
 
         # Add max_rows to limit the number of results
@@ -179,19 +194,22 @@ class EIAAPI:
             params['length'] = max_rows
 
         try:
-            # Construct the full URL for debugging
-            full_url = requests.Request('GET', url, params=params).prepare().url
-            logging.debug(f"Full Data Fetch URL: {full_url}")
+            # Commented out full URL debug log
+            # full_url = requests.Request('GET', url, params=params).prepare().url
+            # logging.debug(f"Full Data Fetch URL: {full_url}")
 
             response = requests.get(url, params=params)
             response.raise_for_status()
             data = response.json()
             if "response" in data and "data" in data["response"]:
-                logging.info(f"Successfully fetched data for route '{route_id}'.")
+                # Commented out success logging
+                # logging.info(f"Successfully fetched data for route '{route_id}'.")
                 return pd.DataFrame(data["response"]["data"])
             else:
-                logging.warning(f"Unexpected data structure in API response for route '{route_id}'.")
+                # Commented out warning logging
+                # logging.warning(f"Unexpected data structure in API response for route '{route_id}'.")
                 return pd.DataFrame()
         except requests.RequestException as e:
-            logging.error(f"Error fetching data for route '{route_id}': {e}")
+            # Commented out error logging
+            # logging.error(f"Error fetching data for route '{route_id}': {e}")
             return pd.DataFrame()

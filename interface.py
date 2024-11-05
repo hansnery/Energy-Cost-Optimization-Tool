@@ -12,6 +12,12 @@ import logging
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
+# Suppress debug messages from urllib3, Jupyter, traitlets, and Comm
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("traitlets").setLevel(logging.WARNING)
+logging.getLogger("ipykernel.comm").setLevel(logging.WARNING)
+logging.getLogger("Comm").setLevel(logging.WARNING)
+
 # Load environment variables from api.env
 load_dotenv("api.env")
 EIA_API_KEY = os.getenv("EIA_API_KEY")
@@ -175,12 +181,11 @@ class EnergyCostOptimizationInterface:
 
         frequency = self.frequency_dropdown.value
         if frequency is None:
-            logging.warning("Frequency is None. Skipping update_date_range.")
+            # Commented out to clear the screen
+            # logging.warning("Frequency is None. Skipping update_date_range.")
             return
 
-        available_periods = self.fetch_available_periods(
-            route["id"], frequency, facets
-        )
+        available_periods = self.fetch_available_periods(route["id"], frequency, facets)
 
         if available_periods:
             default_end_date = available_periods[-1]
@@ -214,13 +219,13 @@ class EnergyCostOptimizationInterface:
         for facet_id, value in facets.items():
             params[f"facets[{facet_id}][]"] = value
 
-        # Add a minimal data field to get data back (choose an available data field)
-        params["data[]"] = "price"  # Replace 'price' with an appropriate data field if necessary
+        # Add a minimal data field to get data back (choose an appropriate data field if necessary)
+        params["data[]"] = "price"
 
         try:
-            # Debug logging
-            full_url = requests.Request('GET', url, params=params).prepare().url
-            logging.debug(f"Full URL for fetching available periods: {full_url}")
+            # Commented out debug logging to clear the screen
+            # full_url = requests.Request('GET', url, params=params).prepare().url
+            # logging.debug(f"Full URL for fetching available periods: {full_url}")
 
             response = requests.get(url, params=params)
             response.raise_for_status()
@@ -228,13 +233,15 @@ class EnergyCostOptimizationInterface:
 
             if "response" in data and "total" in data["response"]:
                 total_records = data["response"]["total"]
-                logging.debug(f"Total records available: {total_records}")
+                # Commented out debug logging
+                # logging.debug(f"Total records available: {total_records}")
             else:
-                logging.error("Unexpected data structure in API response.")
+                # Commented out error logging
+                # logging.error("Unexpected data structure in API response.")
                 return []
 
             # Now fetch all periods using the total_records as length
-            params["length"] = total_records  # Fetch all records
+            params["length"] = total_records
             response = requests.get(url, params=params)
             response.raise_for_status()
             data = response.json()
@@ -244,10 +251,12 @@ class EnergyCostOptimizationInterface:
                 unique_periods = sorted(set(periods))
                 return unique_periods
             else:
-                logging.error("Unexpected data structure in API response.")
+                # Commented out error logging
+                # logging.error("Unexpected data structure in API response.")
                 return []
         except requests.RequestException as e:
-            logging.error(f"Error fetching periods for {route_id}: {e}")
+            # Commented out error logging
+            # logging.error(f"Error fetching periods for {route_id}: {e}")
             return []
 
     def fetch_data(self, b):
