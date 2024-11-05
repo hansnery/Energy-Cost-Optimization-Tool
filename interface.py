@@ -61,11 +61,16 @@ class EnergyCostOptimizationInterface:
 
     def fetch_routes(self):
         routes = self.api.fetch_routes()
+
+        # Only use the first two routes to create buttons
+        routes = routes[:2]
+
         route_buttons = []
         for route in routes:
             button = widgets.Button(description=route["name"], layout=widgets.Layout(width='90%', margin='2px'), button_style="info")
             button.on_click(lambda b, r=route: self.on_route_selected(r))
             route_buttons.append(button)
+
         self.route_buttons_container.children = route_buttons
 
     def on_route_selected(self, route):
@@ -118,6 +123,15 @@ class EnergyCostOptimizationInterface:
             options = self.api.fetch_facet_options(route["id"], facet["id"])
             if options:
                 dropdown = widgets.Dropdown(description=f'{facet["description"]}:', options=options, disabled=False)
+                
+                # Set "all sectors (ALL)" as the default for the Sector dropdown
+                if facet["id"] == "sectorid":
+                    # Set the default to "ALL" if available
+                    for option in options:
+                        if option[1] == "ALL":  # Accessing the id part of the tuple
+                            dropdown.value = option[1]  # Set the dropdown to use the value ID part of the tuple
+                            break
+
                 self.facet_dropdowns[facet["id"]] = dropdown
             else:
                 with self.output:
