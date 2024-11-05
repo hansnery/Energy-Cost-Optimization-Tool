@@ -75,10 +75,55 @@ class EnergyCostOptimizationInterface:
 
         self.selected_route = route  # Store selected route
 
-        # Setup UI options based on the selected route
-        self.setup_route_ui(route)
+        # If the route is "rto", fetch the sub-routes
+        route_details = self.api.fetch_route_details(route["id"])
+        if "routes" in route_details:
+            self.setup_rto_sub_routes(route_details["routes"])
+        else:
+            # Setup UI options based on the selected route
+            self.setup_route_ui(route)
 
-    def setup_route_ui(self, route):
+    def setup_rto_sub_routes(self, sub_routes):
+        # Clear previous output
+        with self.output:
+            clear_output(wait=True)
+            print(f"Selected route has multiple sub-routes. Please select one:")
+
+        # Store the parent route ID to use in future requests
+        self.parent_route_id = self.selected_route["id"]
+
+        # Display buttons for each sub-route
+        sub_route_buttons = []
+        for sub_route in sub_routes:
+            logging.debug(f"Creating button for sub-route: {sub_route['name']}")
+            button = widgets.Button(description=sub_route["name"], layout=widgets.Layout(width='90%', margin='2px'), button_style="info")
+            button.on_click(lambda b, r=sub_route: self.on_sub_route_selected(r))
+            sub_route_buttons.append(button)
+
+        self.route_buttons_container.children = sub_route_buttons
+
+    def on_sub_route_selected(self, sub_route):
+        # Store the sub-route
+        self.selected_route = sub_route
+
+        # Use the stored parent ID and sub-route ID to fetch sub-route details
+        parent_id = self.parent_route_id
+        sub_route_id = sub_route["id"]
+
+        # Correctly fetch route details for the sub-route
+        logging.debug(f"Fetching details for sub-route with parent '{parent_id}' and sub-route ID '{sub_route_id}'")
+        route_details = self.api.fetch_route_details(parent_id, sub_route_id)
+
+        # Now set up the UI with the fetched details
+        if route_details:
+            logging.debug(f"Successfully fetched sub-route details: {route_details}")
+            self.setup_route_ui(route_details)
+        else:
+            with self.output:
+                clear_output(wait=True)
+                print("Failed to fetch route details.")
+
+    def setup_route_ui(self, route_details):
         # Unobserve frequency dropdown to prevent triggering on reset
         try:
             self.frequency_dropdown.unobserve(self.on_frequency_change, names='value')
@@ -92,9 +137,7 @@ class EnergyCostOptimizationInterface:
         self.facet_dropdowns = {}
         self.data_field_checkboxes = {}
 
-        # Fetch route details
-        route_details = self.api.fetch_route_details(route["id"])
-
+        # Ensure we do not refetch route details if already available
         if not route_details:
             with self.output:
                 print("Failed to fetch route details.")
@@ -115,7 +158,7 @@ class EnergyCostOptimizationInterface:
         facets = route_details.get("facets", [])
         self.facet_dropdowns = {}
         for facet in facets:
-            options = self.api.fetch_facet_options(route["id"], facet["id"])
+            options = self.api.fetch_facet_options(self.selected_route["id"], facet["id"])
             if options:
                 dropdown = widgets.Dropdown(description=f'{facet["description"]}:', options=options, disabled=False)
                 self.facet_dropdowns[facet["id"]] = dropdown
@@ -124,12 +167,12 @@ class EnergyCostOptimizationInterface:
                     print(f"No options available for facet '{facet['description']}'.")
 
         # Configure data fields
-        data_fields = self.api.fetch_data_fields(route["id"])
+        data_fields = self.api.fetch_data_fields(self.selected_route["id"])
         if data_fields:
             self.data_field_checkboxes = {field_id: widgets.Checkbox(description=alias, value=False) for alias, field_id in data_fields}
 
         # Initial setup of date range
-        self.update_date_range(route)
+        self.update_date_range(self.selected_route)
 
         # Enable fetch data button
         self.fetch_data_button.disabled = False
