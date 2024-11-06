@@ -204,11 +204,10 @@ class EnergyCostOptimizationInterface:
         # Configure data fields
         data_fields = self.api.fetch_data_fields(route["id"])
         if data_fields:
-            # Adjust width of checkboxes for readability
             self.data_field_checkboxes = {
                 field_id: widgets.Checkbox(
                     description=alias, value=False,
-                    layout=widgets.Layout(width='90%')  # Wider layout for readability
+                    layout=widgets.Layout(width='auto')  # Adjusted layout for better alignment
                 )
                 for alias, field_id in data_fields
             }
@@ -220,45 +219,37 @@ class EnergyCostOptimizationInterface:
         self.fetch_data_button.disabled = False
         self.run_analysis_button.disabled = True  # Disable until data is fetched
 
-        # Arrange all elements in a GridBox for better alignment
-        elements = [
-            self.frequency_dropdown
+        # Arrange UI elements
+        facet_elements = list(self.facet_dropdowns.values())
+        date_elements = [self.start_date_dropdown, self.end_date_dropdown] if self.start_date_dropdown and self.end_date_dropdown else []
+        data_field_elements = list(self.data_field_checkboxes.values())
+
+        # Grouping widgets vertically for better organization
+        main_elements = [
+            self.frequency_dropdown,
+            *facet_elements,
+            *date_elements,
+            widgets.VBox(data_field_elements),  # Display checkboxes in a single VBox for consistent vertical alignment
         ]
 
-        # Add facet dropdowns
-        elements.extend(self.facet_dropdowns.values())
-
-        # Add date range widgets if they exist
-        if self.start_date_dropdown and self.end_date_dropdown:
-            elements.append(self.start_date_dropdown)
-            elements.append(self.end_date_dropdown)
-
-        # Add checkboxes for data fields
-        elements.extend(self.data_field_checkboxes.values())
-
-        # Create a button container
         button_container = widgets.HBox(
             [self.fetch_data_button, self.run_analysis_button],
-            layout=widgets.Layout(justify_content='center', margin='20px auto')
+            layout=widgets.Layout(justify_content='center', margin='20px 0')
         )
+        main_elements.append(button_container)
 
-        # Add button container to elements
-        elements.append(button_container)
-
-        # Display all items in a GridBox for alignment
+        # Display all items in a VBox for alignment
         with self.output:
             clear_output(wait=True)
-            grid = widgets.GridBox(
-                elements,
+            vbox_layout = widgets.VBox(
+                main_elements,
                 layout=widgets.Layout(
-                    grid_template_columns="repeat(2, 50%)",  # 2 columns, each taking 50% of the width
-                    align_items="center",
-                    justify_items="center",
+                    align_items="center",  # Center all elements
                     margin="20px",
-                    grid_gap="10px"  # Gap between elements
+                    width='100%'
                 )
             )
-            display(grid)
+            display(vbox_layout)
 
     def on_frequency_change(self, change):
         # Update date range when frequency changes
