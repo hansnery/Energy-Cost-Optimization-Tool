@@ -2,7 +2,6 @@
 
 import ipywidgets as widgets
 from IPython.display import display, clear_output
-from ipywidgets import Textarea
 import os
 import requests
 import pandas as pd
@@ -27,9 +26,9 @@ class EnergyCostOptimizationInterface:
         self.output = widgets.Output()
         self.url_output = widgets.Output()
 
-        # Store API keys
-        self.eia_api_key = None
-        self.chat_gpt_api_key = None
+        # Store API keys from the environment if available
+        self.eia_api_key = os.getenv("EIA_API_KEY")
+        self.chat_gpt_api_key = os.getenv("CHAT_GPT_API_KEY")
 
         # Initialize placeholders for API and data
         self.api = None
@@ -57,8 +56,15 @@ class EnergyCostOptimizationInterface:
         self.fetch_data_button.on_click(self.fetch_data)
         self.run_analysis_button.on_click(self.run_analysis)
 
-        # Display form for API key inputs
-        self.display_api_key_form()
+        # Determine whether to display the form or proceed with API initialization
+        if self.eia_api_key and self.chat_gpt_api_key:
+            # Initialize APIs if keys are present
+            self.initialize_apis()
+            self.fetch_routes()
+            self.display_interface()
+        else:
+            # Display form for API key inputs
+            self.display_api_key_form()
 
     def display_api_key_form(self):
         # Create input fields for EIA and ChatGPT API keys
@@ -103,6 +109,7 @@ class EnergyCostOptimizationInterface:
 
     def display_interface(self):
         # Display main UI components and URL output below
+        clear_output(wait=True)  # Clear previous outputs to avoid duplicates
         display(self.route_buttons_header, self.route_buttons_container, self.output)
         display(self.url_output)  # Ensure this displays as a separate cell
 
@@ -132,8 +139,6 @@ class EnergyCostOptimizationInterface:
         # Set the buttons in a VBox for a vertically aligned group with centered buttons
         self.route_buttons_container.children = route_buttons
         self.route_buttons_container.layout = widgets.Layout(justify_content='center', align_items='center')
-
-    # The rest of the methods remain the same
 
     def on_route_selected(self, route):
         with self.output:
