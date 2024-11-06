@@ -409,37 +409,41 @@ class EnergyCostOptimizationInterface:
                 print(f"Error fetching data for {self.selected_route['id']}: {e}")
 
     def display_analysis_result(self, result_text):
-        # Adding a title above the analysis text
-        title_html = widgets.HTML(
-            value="<h4 style='text-align: center;'>AI Analysis Result:</h4>",  # Added inline CSS to center the title text
-            layout=widgets.Layout(
-                margin='0 0 10px 0',  # Add margin to separate the title from the text area
+        # Clear previous analysis output before displaying the new one
+        with self.analysis_output:
+            clear_output(wait=True)
+
+            # Adding a title above the analysis text
+            title_html = widgets.HTML(
+                value="<h4 style='text-align: center;'>AI Analysis Result:</h4>",  # Added inline CSS to center the title text
+                layout=widgets.Layout(
+                    margin='0 0 10px 0',  # Add margin to separate the title from the text area
+                )
             )
-        )
 
-        # Adding custom styles using HTML and CSS for better control
-        text_area_html = widgets.HTML(
-            value=f"""
-            <div style="
-                border: 2px solid black;  /* Border around the text area */
-                padding: 10px;  /* Padding for better readability */
-                background-color: #ffffff;  /* White background for better contrast */
-                color: #000000;  /* Black text for maximum readability */
-                font-size: 14px;  /* Larger font for better readability */
-                width: calc(100% - 20px);  /* Make it full width with padding adjustment to avoid overflow */
-                max-width: 800px;  /* Set a max-width to avoid exceeding viewport */
-                height: 300px;  /* Fixed height */
-                overflow-y: auto;  /* Enable scrolling for overflow content */
-                box-sizing: border-box;  /* Ensure padding and border are included in width calculation */
-                margin: 0 auto;  /* Center the element horizontally */
-            ">
-                {result_text}
-            </div>
-            """
-        )
+            # Adding custom styles using HTML and CSS for better control
+            text_area_html = widgets.HTML(
+                value=f"""
+                <div style="
+                    border: 2px solid black;  /* Border around the text area */
+                    padding: 10px;  /* Padding for better readability */
+                    background-color: #ffffff;  /* White background for better contrast */
+                    color: #000000;  /* Black text for maximum readability */
+                    font-size: 14px;  /* Larger font for better readability */
+                    width: calc(100% - 20px);  /* Make it full width with padding adjustment to avoid overflow */
+                    max-width: 800px;  /* Set a max-width to avoid exceeding viewport */
+                    height: 300px;  /* Fixed height */
+                    overflow-y: auto;  /* Enable scrolling for overflow content */
+                    box-sizing: border-box;  /* Ensure padding and border are included in width calculation */
+                    margin: 0 auto;  /* Center the element horizontally */
+                ">
+                    {result_text}
+                </div>
+                """
+            )
 
-        # Display the title and the styled text HTML element
-        display(title_html, text_area_html)
+            # Display the title and the styled text HTML element
+            display(title_html, text_area_html)
 
     def run_analysis(self, b):
         with self.output:
@@ -450,30 +454,33 @@ class EnergyCostOptimizationInterface:
         data_str = self.data.to_string()
 
         prompt = f"""Analyze the following dataset to suggest ways for cost optimization in energy usage using the services by LŌD.
-    Don't complain about any lack of data, just use what you have. Try to use numbers from the dataset as much as you can, using examples when possible.
-    Make it as if it were a marketing pitch for LŌD's services.
-    Take into account the following data about LōD (there's no need to cite everything, just use what you think is relevant):
+        Don't complain about any lack of data, just use what you have. Try to use numbers from the dataset as much as you can, using examples when possible.
+        Make it as if it were a marketing pitch for LŌD's services.
+        Take into account the following data about LōD (there's no need to cite everything, just use what you think is relevant):
 
-    1. LŌD’s platform is designed for mission-critical environments where availability comes first. With built-in redundancy, failover mechanisms, and the ability to scale across multiple sites and devices, LōD ensures reliability and high availability for industries that demand consistent, uninterrupted operations.
-    2. LōD is evolving with AI at its core, leveraging the strengths of LLMs for real-time monitoring, anomaly detection, and predictive maintenance. This allows customers to proactively optimize operations and reduce downtime by making smarter, data-driven decisions.
-    3. Created by a team of experts with deep knowledge of energy markets and industrial operations, LōD is designed to meet the unique needs of industries that require precise energy management. This expertise allows LōD to offer tailored solutions for managing operations based on grid conditions, optimizing energy costs, and maintaining peak operational performance.
-    4. LōD provides 24/7 customer support with a dedicated team of experts ensuring smooth operations and minimal downtime. The platform’s rapid response to issues, combined with tailored onboarding and training, allows clients to integrate LōD seamlessly into their operations while receiving continuous guidance and troubleshooting assistance.
-    5. LŌD Integrates with major DCIM platforms to implement advanced temperature management strategies to maintain quality of service and decrease carbon emissions based on RAILS no-code programming language.
-    6. Mission-Critical datacenters rely on multiple energy sources to ensure availability and quality of service. LŌD optimizes orchestration of energy resources to maximize profits, minimize carbon emissions and improve economics for datacenters.
-    7. Participate in demand response programs and avoid peaks by designing your multi-layer energy strategy based on real-time data from over 20,000 grid nodes.
-    8. Trade energy and ancillaries in the Day-Ahead-Market and lock-in opportunities based on your unique advantages.
+        1. LŌD’s platform is designed for mission-critical environments where availability comes first. With built-in redundancy, failover mechanisms, and the ability to scale across multiple sites and devices, LōD ensures reliability and high availability for industries that demand consistent, uninterrupted operations.
+        2. LōD is evolving with AI at its core, leveraging the strengths of LLMs for real-time monitoring, anomaly detection, and predictive maintenance. This allows customers to proactively optimize operations and reduce downtime by making smarter, data-driven decisions.
+        3. Created by a team of experts with deep knowledge of energy markets and industrial operations, LōD is designed to meet the unique needs of industries that require precise energy management. This expertise allows LōD to offer tailored solutions for managing operations based on grid conditions, optimizing energy costs, and maintaining peak operational performance.
+        4. LōD provides 24/7 customer support with a dedicated team of experts ensuring smooth operations and minimal downtime. The platform’s rapid response to issues, combined with tailored onboarding and training, allows clients to integrate LōD seamlessly into their operations while receiving continuous guidance and troubleshooting assistance.
+        5. LŌD Integrates with major DCIM platforms to implement advanced temperature management strategies to maintain quality of service and decrease carbon emissions based on RAILS no-code programming language.
+        6. Mission-Critical datacenters rely on multiple energy sources to ensure availability and quality of service. LŌD optimizes orchestration of energy resources to maximize profits, minimize carbon emissions and improve economics for datacenters.
+        7. Participate in demand response programs and avoid peaks by designing your multi-layer energy strategy based on real-time data from over 20,000 grid nodes.
+        8. Trade energy and ancillaries in the Day-Ahead-Market and lock-in opportunities based on your unique advantages.
 
-    {data_str}
-    """
+        {data_str}
+        """
 
         # Fetch AI analysis result from ChatGPTAPI
         result = self.chat_gpt_api.analyze_data(prompt)
 
+        # Display analysis result in the dedicated output widget
         with self.output:
             clear_output(wait=True)
             if "error" in result:
                 print(result["error"])
             else:
-                # Extract the generated text before passing it to display_analysis_result
                 generated_text = result["generated_text"]
                 self.display_analysis_result(generated_text)
+
+        # Also explicitly display the analysis output
+        display(self.analysis_output)
