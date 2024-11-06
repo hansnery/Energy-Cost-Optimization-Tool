@@ -169,6 +169,7 @@ class EnergyCostOptimizationInterface:
 
         if not route_details:
             with self.output:
+                clear_output(wait=True)
                 print("Failed to fetch route details.")
             return
 
@@ -185,7 +186,6 @@ class EnergyCostOptimizationInterface:
 
         # Configure facet dropdowns
         facets = route_details.get("facets", [])
-        self.facet_dropdowns = {}
         for facet in facets:
             options = self.api.fetch_facet_options(route["id"], facet["id"])
             if options:
@@ -200,9 +200,6 @@ class EnergyCostOptimizationInterface:
                             break
 
                 self.facet_dropdowns[facet["id"]] = dropdown
-            else:
-                with self.output:
-                    print(f"No options available for facet '{facet['description']}'.")
 
         # Configure data fields
         data_fields = self.api.fetch_data_fields(route["id"])
@@ -223,26 +220,29 @@ class EnergyCostOptimizationInterface:
         self.fetch_data_button.disabled = False
         self.run_analysis_button.disabled = True  # Disable until data is fetched
 
-        # Arrange UI elements for better layout
-        button_container = widgets.HBox(
-            [self.fetch_data_button, self.run_analysis_button],
-            layout=widgets.Layout(
-                justify_content='center',  # Align the buttons horizontally at the center of the container
-                margin='20px auto'  # Add margin for better spacing
-            )
-        )
-
-        # Display configuration UI
+        # Clear previous output and display the UI elements individually
         with self.output:
             clear_output(wait=True)
+            
+            # Display frequency dropdown
             display(self.frequency_dropdown)
+            
+            # Display all facet dropdowns
             for dropdown in self.facet_dropdowns.values():
                 display(dropdown)
+            
+            # Display start and end date dropdowns if they exist
             if self.start_date_dropdown and self.end_date_dropdown:
-                display(self.start_date_dropdown, self.end_date_dropdown)
+                display(self.start_date_dropdown)
+                display(self.end_date_dropdown)
+            
+            # Display all data field checkboxes
             for checkbox in self.data_field_checkboxes.values():
                 display(checkbox)
-            display(button_container)
+            
+            # Display the buttons for fetching data and running analysis
+            display(self.fetch_data_button)
+            display(self.run_analysis_button)
 
     def on_frequency_change(self, change):
         # Update date range when frequency changes
