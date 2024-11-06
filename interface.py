@@ -25,7 +25,7 @@ class EnergyCostOptimizationInterface:
         # Initialize output widgets
         self.output = widgets.Output()
         self.url_output = widgets.Output()
-        self.analysis_output = widgets.Output()  # Output widget for analysis results (this line was missing)
+        self.analysis_output = widgets.Output()  # Output widget for analysis results
 
         # Store API keys from the environment if available
         self.eia_api_key = os.getenv("EIA_API_KEY")
@@ -413,8 +413,6 @@ class EnergyCostOptimizationInterface:
         # Clear previous analysis output before displaying the new one
         with self.analysis_output:
             clear_output(wait=True)
-
-            # Adding a title above the analysis text
             title_html = widgets.HTML(
                 value="<h4 style='text-align: center;'>AI Analysis Result:</h4>",  # Added inline CSS to center the title text
                 layout=widgets.Layout(
@@ -474,14 +472,14 @@ class EnergyCostOptimizationInterface:
         # Fetch AI analysis result from ChatGPTAPI
         result = self.chat_gpt_api.analyze_data(prompt)
 
-        # Display analysis result in the dedicated output widget
-        with self.output:
+        with self.analysis_output:
             clear_output(wait=True)
             if "error" in result:
                 print(result["error"])
             else:
+                # Extract the generated text before passing it to display_analysis_result
                 generated_text = result["generated_text"]
                 self.display_analysis_result(generated_text)
 
-        # Also explicitly display the analysis output
+        # Also explicitly display the analysis output in case it wasn't auto-updated
         display(self.analysis_output)
