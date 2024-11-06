@@ -51,7 +51,7 @@ class EnergyCostOptimizationInterface:
 
         # Buttons for fetching data and running analysis
         self.fetch_data_button = widgets.Button(description="Fetch Data", button_style="info", disabled=True)
-        self.run_analysis_button = widgets.Button(description="Run Analysis", button_style="success", disabled=True)
+        self.run_analysis_button = widgets.Button(description="Run AI Analysis", button_style="success", disabled=True)
 
         # Bind button actions
         self.fetch_data_button.on_click(self.fetch_data)
