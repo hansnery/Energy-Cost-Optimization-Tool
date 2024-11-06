@@ -244,6 +244,9 @@ class EnergyCostOptimizationInterface:
             display(self.fetch_data_button)
             display(self.run_analysis_button)
 
+        # Ensure that the UI displays fully before any interactions
+        self.output.layout = widgets.Layout(margin='20px auto')
+
     def on_frequency_change(self, change):
         # Update date range when frequency changes
         self.update_date_range(self.selected_route)
