@@ -25,6 +25,7 @@ class EnergyCostOptimizationInterface:
         # Initialize output widgets
         self.output = widgets.Output()
         self.url_output = widgets.Output()
+        self.analysis_output = widgets.Output()  # Output widget for analysis results (this line was missing)
 
         # Store API keys from the environment if available
         self.eia_api_key = os.getenv("EIA_API_KEY")
