@@ -220,32 +220,45 @@ class EnergyCostOptimizationInterface:
         self.fetch_data_button.disabled = False
         self.run_analysis_button.disabled = True  # Disable until data is fetched
 
-        # Clear previous output and display the UI elements individually
+        # Arrange all elements in a GridBox for better alignment
+        elements = [
+            self.frequency_dropdown
+        ]
+
+        # Add facet dropdowns
+        elements.extend(self.facet_dropdowns.values())
+
+        # Add date range widgets if they exist
+        if self.start_date_dropdown and self.end_date_dropdown:
+            elements.append(self.start_date_dropdown)
+            elements.append(self.end_date_dropdown)
+
+        # Add checkboxes for data fields
+        elements.extend(self.data_field_checkboxes.values())
+
+        # Create a button container
+        button_container = widgets.HBox(
+            [self.fetch_data_button, self.run_analysis_button],
+            layout=widgets.Layout(justify_content='center', margin='20px auto')
+        )
+
+        # Add button container to elements
+        elements.append(button_container)
+
+        # Display all items in a GridBox for alignment
         with self.output:
             clear_output(wait=True)
-            
-            # Display frequency dropdown
-            display(self.frequency_dropdown)
-            
-            # Display all facet dropdowns
-            for dropdown in self.facet_dropdowns.values():
-                display(dropdown)
-            
-            # Display start and end date dropdowns if they exist
-            if self.start_date_dropdown and self.end_date_dropdown:
-                display(self.start_date_dropdown)
-                display(self.end_date_dropdown)
-            
-            # Display all data field checkboxes
-            for checkbox in self.data_field_checkboxes.values():
-                display(checkbox)
-            
-            # Display the buttons for fetching data and running analysis
-            display(self.fetch_data_button)
-            display(self.run_analysis_button)
-
-        # Ensure that the UI displays fully before any interactions
-        self.output.layout = widgets.Layout(margin='20px auto')
+            grid = widgets.GridBox(
+                elements,
+                layout=widgets.Layout(
+                    grid_template_columns="repeat(2, 50%)",  # 2 columns, each taking 50% of the width
+                    align_items="center",
+                    justify_items="center",
+                    margin="20px",
+                    grid_gap="10px"  # Gap between elements
+                )
+            )
+            display(grid)
 
     def on_frequency_change(self, change):
         # Update date range when frequency changes
