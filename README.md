@@ -2,8 +2,6 @@
 
 This tool leverages real-time data from the U.S. Energy Information Administration (EIA) API along with the capabilities of a Large Language Model (LLM) to provide advanced insights into energy costs and trends. This mini-application was created to assist users in understanding energy consumption, optimizing energy usage, and reducing costs effectively.
 
-[![Open in Google Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hansnery/Energy-Cost-Optimization-Tool/blob/main/Energy_Cost_Optimization_Tool.ipynb)
-
 ## Table of Contents
 
 1. [Features](#features)
@@ -62,15 +60,6 @@ These can be installed via the `requirements.txt` file as shown in the [Installa
    ```
 
 ## Usage Guide
-
-1. **Launch in Google Colab**  
-   Simply click the **Open in Google Colab** button, and the notebook will automatically:
-
-   - Clone the repository.
-   - Set up the environment.
-   - Display the interface for you to start using immediately.
-
-**OR**
 
 1. **Launch Jupyter Notebook**
    Run the Jupyter Notebook from your terminal:
